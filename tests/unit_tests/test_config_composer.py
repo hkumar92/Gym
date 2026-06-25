@@ -17,8 +17,8 @@ from pathlib import Path
 from omegaconf import OmegaConf
 from pytest import raises
 
-from nemo_gym.agent_registry import AgentNotComposableError
 from nemo_gym.config_composer import (
+    AgentNotComposableError,
     ComposeRequest,
     MandatoryPlaceholderError,
     NoComposableAgentBlockError,

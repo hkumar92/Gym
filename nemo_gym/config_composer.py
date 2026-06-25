@@ -56,6 +56,15 @@ class MandatoryPlaceholderError(ConfigComposerError):
     """A mandatory ``???`` (OmegaConf MISSING) field remained after composition."""
 
 
+class AgentNotComposableError(ConfigComposerError):
+    """The requested agent is self-contained (Pattern B) and cannot be wired into an environment.
+
+    Raised by the agent-resolution callable passed to :func:`substitute_agent` / :func:`compose`
+    when ``require_composable=True`` and the agent ships its own environment/framework. Composability
+    is classified by :func:`nemo_gym.agent_registry.discover_agents` (``AgentEntry.self_contained``).
+    """
+
+
 @dataclass(frozen=True)
 class ComposeRequest:
     """A composition request along the agent and dataset axes (model axis handled by the CLI)."""
@@ -140,8 +149,8 @@ def substitute_agent(
     """Replace the agent harness in ``agent_block_key`` with ``new_agent``, keeping env wiring.
 
     ``new_agent`` is resolved via ``resolve_agent_config_path(new_agent, require_composable=True)``;
-    a Pattern B (self-contained) agent raises :class:`~nemo_gym.agent_registry.AgentNotComposableError`,
-    which is left to propagate. The new agent config's inner block (shape
+    a Pattern B (self-contained) agent raises :class:`AgentNotComposableError`, which is left to
+    propagate. The new agent config's inner block (shape
     ``<k>.responses_api_agents.<new_agent>``) replaces the existing inner agent block, but the
     environment's ``resources_server`` / ``model_server`` / ``datasets`` win over the agent config's
     own values, and the inner key is re-keyed to ``<new_agent>``.
