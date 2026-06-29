@@ -198,6 +198,14 @@ class TestValidateNoMandatoryPlaceholders:
         with raises(MandatoryPlaceholderError, match="resources_server.name"):
             _validate_no_mandatory_placeholders(merged, "bench_agent")
 
+    def test_unresolvable_interpolation_does_not_crash(self) -> None:
+        # A composable (Pattern A) agent may interpolate a key NO_MODEL doesn't inject (e.g. a
+        # provider api key like ${nvidia_api_key}). Scanning for `???` must NOT resolve it — doing so
+        # would raise InterpolationKeyError and block an otherwise-valid composition.
+        merged = _merged()
+        merged["bench_agent"]["responses_api_agents"]["simple_agent"]["api_key"] = "${nvidia_api_key}"
+        _validate_no_mandatory_placeholders(merged, "bench_agent")  # must not raise
+
     def test_raises_on_missing_in_referenced_resources_block(self) -> None:
         merged = _merged()
         merged["bench_resources"]["resources_servers"]["bench"]["judge_model_server"]["name"] = "???"

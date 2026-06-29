@@ -233,9 +233,13 @@ def _validate_no_mandatory_placeholders(merged: DictConfig, agent_block_key: str
                 if OmegaConf.is_missing(node, key):
                     missing.append(f"{path}.{key}" if path else str(key))
                 else:
-                    _walk(node[key], f"{path}.{key}" if path else str(key))
+                    # Use `_get_node` so interpolations (e.g. a composable agent's `${nvidia_api_key}`)
+                    # are NOT resolved while we only scan for remaining `???`; `node[key]` would
+                    # resolve and raise InterpolationKeyError for keys NO_MODEL doesn't inject.
+                    _walk(node._get_node(key), f"{path}.{key}" if path else str(key))
         elif isinstance(node, (list, ListConfig)):
-            for index, item in enumerate(node):
+            for index in range(len(node)):
+                item = node._get_node(index) if isinstance(node, ListConfig) else node[index]
                 _walk(item, f"{path}[{index}]")
 
     agent_block = merged[agent_block_key]
