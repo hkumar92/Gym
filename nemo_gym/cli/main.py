@@ -415,6 +415,21 @@ COMMANDS = {
         summary="Compose a benchmark config with a swapped agent and/or dataset params; dump the result.",
         flags=(CONFIG, BENCHMARK, SEARCH_DIR, COMPOSE_AGENT, COMPOSE_NUM_REPEATS, COMPOSE_PROMPT_CONFIG),
     ),
+    "env validate": Command(
+        target="nemo_gym.cli.env:validate",
+        summary="Validate a config (paths, cross-refs, ??? values, servers) fast — no Ray, no servers.",
+        flags=(
+            CONFIG,
+            BENCHMARK,
+            ENVIRONMENT,
+            RESOURCES_SERVER_CONFIG,
+            MODEL_TYPE,
+            SEARCH_DIR,
+            MODEL,
+            MODEL_URL,
+            MODEL_API_KEY,
+        ),
+    ),
     "env packages": Command(
         target="nemo_gym.cli.env:pip_list",
         summary="Print pip packages for the selected resources server.",

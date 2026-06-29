@@ -547,7 +547,14 @@ def test():  # pragma: no cover
         print(f"You can run detailed tests via `cd {test_config.entrypoint} && source .venv/bin/activate && pytest`.")
         exit(return_code)
 
-    _validate_data_single(test_config)
+    try:
+        _validate_data_single(test_config)
+    except AssertionError:
+        print(f"Data validation failed for {test_config.entrypoint}. You can rerun just the data validation like:")
+        print("```bash")
+        print(f"gym env test +entrypoint={test_config.entrypoint} +should_validate_data=true")
+        print("```")
+        exit(1)
 
 
 def _display_list_of_paths(paths: List[Path]) -> str:  # pragma: no cover
@@ -632,6 +639,7 @@ def test_all():  # pragma: no cover
     tests_passed: List[Path] = []
     tests_failed: List[Path] = []
     tests_missing: List[Path] = []
+    tests_unrecognized: List[Path] = []
     data_validation_failed: List[Path] = []
     times_taken: List[Tuple[float, Path]] = []
     for dir_path in tqdm(dir_paths, desc="Running tests"):
@@ -652,10 +660,7 @@ def test_all():  # pragma: no cover
             case 5:
                 tests_missing.append(dir_path)
             case _:
-                raise ValueError(
-                    f"""Hit unrecognized exit code {return_code} while running tests for {dir_path}.
-You can rerun just these tests using `gym env test +entrypoint={dir_path}` or run detailed tests via `cd {dir_path} && source .venv/bin/activate && pytest`."""
-                )
+                tests_unrecognized.append(dir_path)
 
         try:
             _validate_data_single(test_config)
@@ -687,13 +692,15 @@ Tests failed {_format_pct(len(tests_failed), len(dir_paths))}:{_display_list_of_
 
 Tests missing {_format_pct(len(tests_missing), len(dir_paths))}:{_display_list_of_paths(tests_missing)}
 
+Tests that returned unrecognized exit codes {_format_pct(len(tests_unrecognized), len(dir_paths))}:{_display_list_of_paths(tests_unrecognized)}
+
 Data validation failed {_format_pct(len(data_validation_failed), len(dir_paths))}:{_display_list_of_paths(data_validation_failed)}
 """)
 
-    if tests_failed or tests_missing:
-        print(f"""You can rerun just the server with failed or missing tests like:
+    if tests_failed or tests_missing or tests_unrecognized:
+        print(f"""You can rerun just the server with failed, missing or unrecognized tests results like:
 ```bash
-gym env test +entrypoint={(tests_failed + tests_missing)[0]}
+gym env test +entrypoint={(tests_failed + tests_missing + tests_unrecognized)[0]}
 ```
 """)
     if data_validation_failed:
@@ -922,6 +929,39 @@ def compose_config():  # pragma: no cover
         raise SystemExit(1)
 
     print(OmegaConf.to_yaml(composed, resolve=False))
+
+
+@exit_cleanly_on_config_error
+def validate():
+    """Validate a config without starting Ray or any server subprocess.
+
+    Runs the full config parse — config_paths resolution (missing/malformed), server cross-reference
+    validation, mandatory `???` values, and schema — then exits 0 (valid) or, via
+    `exit_cleanly_on_config_error`, 1 with a clean traceback-free message. No Ray, no servers, so it
+    returns in well under a second instead of after Ray bootstrap.
+
+    No model config is required: a dummy `policy_model` is injected (the `NO_MODEL` parser config, as
+    in `gym list` / `env compose`) so model interpolations (e.g. `${policy_base_url}`) resolve —
+    validation is about config well-formedness, not the model. Pass a model config / `--model-type`
+    as well if you want it validated too.
+
+    Examples:
+
+    ```bash
+    gym env validate --environment <env>
+    gym env validate --benchmark <benchmark>
+    # or by explicit config path(s):
+    gym env validate --config resources_servers/<env>/configs/<env>.yaml
+    ```
+    """
+    global_config_dict = get_global_config_dict(
+        global_config_dict_parser_config=GlobalConfigDictParserConfig(
+            initial_global_config_dict=GlobalConfigDictParserConfig.NO_MODEL_GLOBAL_CONFIG_DICT,
+        ),
+    )
+    BaseNeMoGymCLIConfig.model_validate(global_config_dict)
+
+    rich.print("[green]✓[/green] Config is valid.")
 
 
 def list_environments() -> None:
